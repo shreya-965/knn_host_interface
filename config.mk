@@ -40,3 +40,9 @@ OPT_LEVEL          := -Os
 
 # Additional compiler flags
 EXTRA_CFLAGS       := -ffreestanding -nostdlib -Wall
+
+# RTL version
+RTL_VERSION        := 1.1
+
+# SIM or FPGA (in caps)
+RUN_TARGET		   := SIM

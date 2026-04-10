@@ -10,7 +10,7 @@ _start:
     sw   t0, 4(t6)
 
     # Make sure all interrupts are masked.
-    li   t0, 0x0
+    li   t0, -1            # 0xFFFFFFFF
     picorv32_maskirq_insn(t0, t0)
 
     call main

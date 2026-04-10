@@ -2,7 +2,7 @@
 .global _start
 
 _start:
-    lui sp, (1024 * 32) >> 12  # valid stack
+    la sp, _stack_top
     call main
 
 .global hang

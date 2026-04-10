@@ -11,7 +11,7 @@ main:
     
     li   x3, 130              # Total training images
     li   x4, 5                # K = 5
-    li   x5, 7               # Test images
+    li   x5, 8               # Test images
     li   x6, 0                # test_idx = 0
 
 test_loop:
@@ -287,8 +287,15 @@ store_result:
     li   x2, 0x05000000
     sw   x15, 0(x2)             # stores the index/ counter value of x30
 
-    # Program timer for ~0.5s and wait for timer IRQ0 to become pending.
+    # Program timer and wait for interrupt to create delay between outputs
+#ifdef TARGET_FPGA
+    # ~0.5s delay for FPGA (assuming 100MHz clock)
     li   x10, 100000000 / 2
+#else
+    # 8 cycle delay for sim
+    li   x10, 8
+#endif
+
     picorv32_timer_insn(x0, x10)
 timer_wait_irq0:
     picorv32_waitirq_insn(x31)

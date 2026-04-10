@@ -14,12 +14,12 @@ all: bootrom firmware
 
 # Build bootrom
 bootrom: config.mk
-	@echo "Building bootrom..."
+	@echo "Building bootrom for RTLv$(RTL_VERSION), $(RUN_TARGET) target..."
 	$(MAKE) -C bootrom
 
 # Build firmware
 firmware: config.mk
-	@echo "Building firmware..."
+	@echo "Building firmware for $(RUN_TARGET) target..."
 	$(MAKE) -C firmware
 
 # UART path: bootrom without flash loading + firmware combined into single binary

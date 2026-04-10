@@ -8,6 +8,12 @@ OBJCOPY := $(patsubst %gcc,%objcopy,$(CC))
 SRC_DIR     := src
 BUILD_DIR   := build
 SCRIPT_DIR  := ../scripts
+RTL_TAG     := $(subst .,_,${RTL_VERSION})
+RTL_SRC_DIR := $(SRC_DIR)/rtl_$(RTL_TAG)
+
+ifeq ($(wildcard $(RTL_SRC_DIR)),)
+$(error Unsupported RTL_VERSION $(RTL_VERSION). Missing $(RTL_SRC_DIR))
+endif
 
 CFLAGS  := $(OPT_LEVEL) -march=$(ARCH) -mabi=$(ABI) $(EXTRA_CFLAGS)
 LDFLAGS := -T$(BUILD_DIR)/bootrom.lds -nostdlib -lgcc
@@ -19,7 +25,7 @@ LD_DEFINES := -DBOOTROM_START_ADDR=$(BOOTROM_START_ADDR) \
 # Build type (FLASH_PATH or UART_PATH)
 BUILD_MODE ?= FLASH_PATH
 OBJ_DIR    := $(BUILD_DIR)/obj/$(BUILD_MODE)
-CFLAGS += -D$(BUILD_MODE)
+CFLAGS += -D$(BUILD_MODE) -DRTL_VERSION_$(RTL_TAG) -DTARGET_$(RUN_TARGET) -I$(RTL_SRC_DIR)
 
 # Output suffix based on build mode (for UART_PATH, creates separate bootrom)
 OUTPUT_SUFFIX := $(if $(filter UART_PATH,$(BUILD_MODE)),_UART_PATH,)
@@ -28,7 +34,7 @@ TARGET_NAME := bootrom$(OUTPUT_SUFFIX)
 TARGET      := $(BUILD_DIR)/$(TARGET_NAME)
 
 C_SRCS   := $(wildcard $(SRC_DIR)/*.c)
-ASM_SRCS := $(wildcard $(SRC_DIR)/*.S)
+ASM_SRCS := $(wildcard $(SRC_DIR)/*.S) $(wildcard $(RTL_SRC_DIR)/*.S)
 
 OBJS := \
 	$(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRCS)) \
@@ -62,9 +68,11 @@ $(OBJ_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c ../config.mk | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.S ../config.mk | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Preprocess linker script
