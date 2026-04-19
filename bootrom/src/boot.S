@@ -82,7 +82,7 @@ delay2:
 read_phase:
     mv   a0, s3     # flash_offset
     mv   a1, s5     # dst_ptr
-    mv   a2, s4     # word_count (header only)
+    mv   a2, s4     # word_count
     call flash_read_words
     beqz s6, parse_header
     j    verify_payload
@@ -100,16 +100,14 @@ parse_header:
     srli t2, t2, 2
     mv   s4, t2
     mv   s5, t3
-    mv   s8, t3
-    mv   s9, t2
     addi s3, s3, FW_HEADER_BYTES
     li   s6, 1
     j    read_phase
 
 #  --- VERIFY PAYLOAD CHECKSUM ---
 verify_payload:
-    mv   a0, s8
-    mv   a1, s9
+    mv   a0, s5
+    mv   a1, s4
     call fw_checksum32
     bne  a0, s7, done
 
@@ -121,7 +119,7 @@ firmware_done:
     li   a0, 0xFF
     call uart_write_u8
 
-    mv   t0, s8
+    mv   t0, s5
     jr   t0
 #else
     li   a0, 0xFF
