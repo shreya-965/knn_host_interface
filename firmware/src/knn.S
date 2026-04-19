@@ -1,312 +1,344 @@
 #include "dsq.h"
 #include "irq.h"
 
+#ifdef RTL_VERSION_1_1
+    .equ UART_BASE, 0x03000000
+    .equ UART_LSR_OFFSET, 0xC
+    .equ UART_LSR_THRE_MASK, 0x20
+    .equ UART_RBR_THR_DLL_OFFSET, 0x0
+#else
+    .equ UART_BASE, 0x20020000
+    .equ UART_TX_OFFSET, 0x4
+    .equ TX_EMPTY_MASK, 0x4
+#endif
+
+.equ GPIO_BASE , 0x05000000
+
 .text
 .globl main
 main:
-    
-    li x5,0x05000000
-    li x31,00000001
-    sw x31,0(x5)
-    
-    li   x3, 130              # Total training images
-    li   x4, 5                # K = 5
-    li   x5, 8               # Test images
-    li   x6, 0                # test_idx = 0
+    li   t0, GPIO_BASE
+    li   t6, 1
+    sw   t6, 0(t0)
+
+    li   s1, 130              # Total training images
+    li   s2, 5                # K = 5
+    li   s3, 8                # Test images
+    li   s4, 0                # test_idx = 0
 
 test_loop:
-    bge  x6, x5, end
+    bge  s4, s3, end
 
-    la   x7, train_data
-    la   x8, test_data
-    li   x9, 68
-    mul  x10, x6, x9
-    add  x8, x8, x10          # test_ptr
+    la   s5, train_data
+    la   s6, test_data
+    li   t0, 68
+    mul  t1, s4, t0
+    add  s6, s6, t1           # test_ptr
 
-    la   x11, dist_label_pairs
-    la   x12, label_counts
-    li   x13, 0               # train_idx
+    la   s7, dist_label_pairs
+    la   s8, label_counts
+    li   s9, 0                # train_idx
 
 # Clear distance-label pairs
-    li   x14, 0
+    li   t2, 0
 clear_dlp:
-    bge  x14, x4, after_clear
-    slli x15, x14, 3
-    add  x16, x11, x15
-    sw   x0, 0(x16)
-    sw   x0, 4(x16)
-    addi x14, x14, 1
+    bge  t2, s2, after_clear
+    slli t3, t2, 3
+    add  t4, s7, t3
+    sw   zero, 0(t4)
+    sw   zero, 4(t4)
+    addi t2, t2, 1
     j    clear_dlp
 
 after_clear:
-    li   x17, -1              # max_dist
-    li   x18, -1              # max_idx
+    li   s10, -1              # max_dist
+    li   s11, -1              # max_idx
 
 # ===================== Training Loop =====================
 train_loop:
-    bge  x13, x3, after_train
-    lw   x19, 0(x7)           # train label
-    addi x20, x7, 4           # train pixels
-    addi x21, x8, 4           # test pixels
-    li   x22, 0               # dist
-    li   x23, 0
+    bge  s9, s1, after_train
+    lw   a7, 0(s5)            # train label
+    addi t5, s5, 4            # train pixels
+    addi t6, s6, 4            # test pixels
+    li   a1, 0                # dist
+    li   a2, 0
 
 pix_loop:
-    li   x24, 64
-    bge  x23, x24, insert_k
-    lw  x25, 0(x20)
-    lw  x26, 0(x21)
-    INSN_DSQ(27,25,26)
-    add  x22, x22, x27
-    addi x20, x20, 4
-    addi x21, x21, 4
-    addi x23, x23, 4
+    li   a3, 64
+    bge  a2, a3, insert_k
+    lw   a4, 0(t5)
+    lw   a5, 0(t6)
+    INSN_DSQ(16,14,15)
+    add  a1, a1, a6
+    addi t5, t5, 4
+    addi t6, t6, 4
+    addi a2, a2, 4
     j    pix_loop
 
 insert_k:
-    blt  x13, x4, store_new
-    slli x28, x18, 3
-    add  x29, x11, x28
-    lw   x30, 0(x29)
-    bge  x22, x30, next_train
-    sw   x22, 0(x29)
-    sw   x19, 4(x29)
-    li   x17, -1
-    li   x18, -1
-    li   x31, 0
+    blt  s9, s2, store_new
+    slli t3, s11, 3
+    add  t4, s7, t3
+    lw   t5, 0(t4)
+    bge  a1, t5, next_train
+    sw   a1, 0(t4)
+    sw   a7, 4(t4)
+    li   s10, -1
+    li   s11, -1
+    li   t6, 0
 
 find_max:
-    bge  x31, x4, next_train
-    slli x28, x31, 3
-    add  x29, x11, x28
-    lw   x30, 0(x29)
-    blt  x17, x30, set_max
-    addi x31, x31, 1
+    bge  t6, s2, next_train
+    slli t3, t6, 3
+    add  t4, s7, t3
+    lw   t5, 0(t4)
+    blt  s10, t5, set_max
+    addi t6, t6, 1
     j    find_max
 set_max:
-    mv   x17, x30
-    mv   x18, x31
-    addi x31, x31, 1
+    mv   s10, t5
+    mv   s11, t6
+    addi t6, t6, 1
     j    find_max
 
 store_new:
-    slli x28, x13, 3
-    add  x29, x11, x28
-    sw   x22, 0(x29)
-    sw   x19, 4(x29)
-    beqz x13, set_first
-    lw   x30, 0(x29)
-    blt  x17, x30, update_max
+    slli t3, s9, 3
+    add  t4, s7, t3
+    sw   a1, 0(t4)
+    sw   a7, 4(t4)
+    beqz s9, set_first
+    lw   t5, 0(t4)
+    blt  s10, t5, update_max
     j    next_train
 set_first:
-    mv   x17, x22
-    mv   x18, x13
+    mv   s10, a1
+    mv   s11, s9
     j    next_train
 update_max:
-    mv   x17, x22
-    mv   x18, x13
+    mv   s10, a1
+    mv   s11, s9
 
 next_train:
-    addi x7, x7, 68
-    addi x13, x13, 1
+    addi s5, s5, 68
+    addi s9, s9, 1
     j    train_loop
 
 # ===================== Voting =====================
 after_train:
 # Clear label_counts
-    li   x13, 0
+    li   s9, 0
 clear_labels:
-    li   x14, 10
-    bge  x13, x14, vote_loop
-    slli x15, x13, 2
-    add  x16, x12, x15
-    sw   x0, 0(x16)
-    addi x13, x13, 1
+    li   t2, 10
+    bge  s9, t2, vote_loop
+    slli t3, s9, 2
+    add  t4, s8, t3
+    sw   zero, 0(t4)
+    addi s9, s9, 1
     j    clear_labels
 
 vote_loop:
-    li   x13, 0
-    li   x14, 0               # max_votes
-    li   x15, -1              # predicted label
+    li   s9, 0
+    li   t2, 0               # max_votes
+    li   s0, -1              # predicted label
 vote_count:
-    bge  x13, x4, check_all_one
-    slli x16, x13, 3
-    add  x17, x11, x16
-    lw   x18, 4(x17)          # label
-    slli x19, x18, 2
-    add  x19, x12, x19
-    lw   x20, 0(x19)
-    addi x20, x20, 1
-    sw   x20, 0(x19)
-    blt  x14, x20, set_pred
+    bge  s9, s2, check_all_one
+    slli t3, s9, 3
+    add  t4, s7, t3
+    lw   t5, 4(t4)           # label
+    slli t6, t5, 2
+    add  t6, s8, t6
+    lw   a0, 0(t6)
+    addi a0, a0, 1
+    sw   a0, 0(t6)
+    blt  t2, a0, set_pred
     j    next_vote
 set_pred:
-    mv   x14, x20
-    mv   x15, x18
+    mv   t2, a0
+    mv   s0, t5
 next_vote:
-    addi x13, x13, 1
+    addi s9, s9, 1
     j    vote_count
 
 # ===================== Check for Rule 2 =====================
 check_all_one:
-    li x13, 0
-    li x21, 0
+    li   s9, 0
+    li   t0, 0
 check_loop:
-    bge x13, x4, rule2_check_done
-    slli x22, x13, 3
-    add  x23, x11, x22
-    lw   x24, 4(x23)
-    slli x25, x24, 2
-    add  x25, x12, x25
-    lw   x26, 0(x25)
-    li   x27, 1
-    bne  x26, x27, not_all_ones
-    addi x21, x21, 1
-    addi x13, x13, 1
+    bge  s9, s2, rule2_check_done
+    slli t1, s9, 3
+    add  t2, s7, t1
+    lw   t3, 4(t2)
+    slli t4, t3, 2
+    add  t4, s8, t4
+    lw   t5, 0(t4)
+    li   t6, 1
+    bne  t5, t6, not_all_ones
+    addi t0, t0, 1
+    addi s9, s9, 1
     j    check_loop
 not_all_ones:
-    li x21, -1
+    li   t0, -1
 rule2_check_done:
-    beq x21, x4, fallback_nn
+    beq  t0, s2, fallback_nn
 
 # ===================== Check if Tie Exists (Rule 3) =====================
-    li   x13, 0
-    li   x28, 0
-    li   x29, -1
+    li   s9, 0
+    li   t3, 0
+    li   t4, -1
 tie_loop:
-    bge  x13, x4, check_tie_done
-    slli x30, x13, 3
-    add  x31, x11, x30
-    lw   x20, 4(x31)
-    slli x21, x20, 2
-    add  x21, x12, x21
-    lw   x22, 0(x21)
-    blt  x28, x22, new_max
-    beq  x28, x22, inc_max_count
+    bge  s9, s2, check_tie_done
+    slli t5, s9, 3
+    add  t6, s7, t5
+    lw   a0, 4(t6)
+    slli a1, a0, 2
+    add  a1, s8, a1
+    lw   a2, 0(a1)
+    blt  t3, a2, new_max
+    beq  t3, a2, inc_max_count
     j    next_tie
 new_max:
-    mv   x28, x22
-    li   x29, 1
+    mv   t3, a2
+    li   t4, 1
     j    next_tie
 inc_max_count:
-    addi x29, x29, 1
+    addi t4, t4, 1
 next_tie:
-    addi x13, x13, 1
-    j tie_loop
+    addi s9, s9, 1
+    j    tie_loop
 
 check_tie_done:
-    li x21, 1
-    ble x29, x21, store_result
+    li   t0, 1
+    ble  t4, t0, store_result
 
 # ===================== Sort KNN =====================
-    li   x13, 0
+    li   s9, 0
 sort_outer:
-    bge  x13, x4, pick_sorted_max
-    mv   x14, x13
-    addi x15, x13, 1
+    bge  s9, s2, pick_sorted_max
+    mv   t0, s9
+    addi t1, s9, 1
 sort_inner:
-    bge  x15, x4, sort_check
-    slli x16, x14, 3
-    add  x17, x11, x16
-    lw   x18, 0(x17)
-    slli x19, x15, 3
-    add  x20, x11, x19
-    lw   x21, 0(x20)
-    blt  x21, x18, set_new_min
+    bge  t1, s2, sort_check
+    slli t2, t0, 3
+    add  t3, s7, t2
+    lw   t4, 0(t3)
+    slli t5, t1, 3
+    add  t6, s7, t5
+    lw   a0, 0(t6)
+    blt  a0, t4, set_new_min
     j    skip_sort
 set_new_min:
-    mv x14, x15
+    mv   t0, t1
 skip_sort:
-    addi x15, x15, 1
-    j sort_inner
+    addi t1, t1, 1
+    j    sort_inner
 sort_check:
-    beq x13, x14, skip_swap
-    slli x22, x13, 3
-    add  x23, x11, x22
-    lw   x24, 0(x23)
-    lw   x25, 4(x23)
-    slli x26, x14, 3
-    add  x27, x11, x26
-    lw   x28, 0(x27)
-    lw   x29, 4(x27)
-    sw   x28, 0(x23)
-    sw   x29, 4(x23)
-    sw   x24, 0(x27)
-    sw   x25, 4(x27)
+    beq  s9, t0, skip_swap
+    slli a1, s9, 3
+    add  a2, s7, a1
+    lw   a3, 0(a2)
+    lw   a4, 4(a2)
+    slli a5, t0, 3
+    add  a6, s7, a5
+    lw   a7, 0(a6)
+    lw   t2, 4(a6)
+    sw   a7, 0(a2)
+    sw   t2, 4(a2)
+    sw   a3, 0(a6)
+    sw   a4, 4(a6)
 skip_swap:
-    addi x13, x13, 1
-    j sort_outer
+    addi s9, s9, 1
+    j    sort_outer
 
 pick_sorted_max:
-    li   x13, 0
-    li   x28, -1
+    li   s9, 0
+    li   t3, -1
 pick_loop:
-    bge  x13, x4, store_result
-    slli x29, x13, 3
-    add  x30, x11, x29
-    lw   x31, 4(x30)
-    slli x20, x31, 2
-    add  x20, x12, x20
-    lw   x21, 0(x20)
-    blt  x28, x21, update_final
+    bge  s9, s2, store_result
+    slli t4, s9, 3
+    add  t5, s7, t4
+    lw   t6, 4(t5)
+    slli a0, t6, 2
+    add  a0, s8, a0
+    lw   a1, 0(a0)
+    blt  t3, a1, update_final
     j    next_final
 update_final:
-    mv x28, x21
-    mv x15, x31
+    mv   t3, a1
+    mv   s0, t6
 next_final:
-    addi x13, x13, 1
-    j pick_loop
+    addi s9, s9, 1
+    j    pick_loop
 
 # ===================== Fallback (Rule 2) =====================
 fallback_nn:
-    li   x13, 0
-    li   x27, 0
+    li   s9, 0
+    li   t2, 0x7fffffff
 fallback_loop:
-    bge  x13, x4, store_result
-    slli x28, x13, 3
-    add  x29, x11, x28
-    lw   x30, 0(x29)
-    blt  x27, x30, skip_fb
-    mv   x27, x30
-    lw   x15, 4(x29)
+    bge  s9, s2, store_result
+    slli t3, s9, 3
+    add  t4, s7, t3
+    lw   t5, 0(t4)
+    bge  t5, t2, skip_fb
+    mv   t2, t5
+    lw   s0, 4(t4)
 skip_fb:
-    addi x13, x13, 1
-    j fallback_loop
+    addi s9, s9, 1
+    j    fallback_loop
 
 # ===================== Store Predicted Label =====================
 store_result:
-    la   x16, Predicted_label
-    slli x17, x6, 2
-    add  x16, x16, x17
-    sw   x15, 0(x16)
-    
-    li   x18, 0x20020000       # UART
-    sw   x15, 4(x18)
-    
-    # LED output                #to display the index of test image
-    li   x2, 0x05000000
-    sw   x15, 0(x2)             # stores the index/ counter value of x30
+    la   t0, Predicted_label
+    slli t1, s4, 2
+    add  t0, t0, t1
+    sw   s0, 0(t0)
+
+    mv   a0, s0
+    call uart_write_u8
+
+    # LED output to display the predicted label.
+    li   t0, GPIO_BASE
+    sw   s0, 0(t0)
 
     # Program timer and wait for interrupt to create delay between outputs
 #ifdef TARGET_FPGA
     # ~0.5s delay for FPGA (assuming 100MHz clock)
-    li   x10, 100000000 / 2
+    li   t1, 100000000 / 2
 #else
     # 8 cycle delay for sim
-    li   x10, 8
+    li   t1, 8
 #endif
 
-    picorv32_timer_insn(x0, x10)
+    picorv32_timer_insn(zero, t1)
 timer_wait_irq0:
-    picorv32_waitirq_insn(x31)
-    andi x31, x31, 1
-    beqz x31, timer_wait_irq0
+    picorv32_waitirq_insn(t2)
+    andi t2, t2, 1
+    beqz t2, timer_wait_irq0
 
-    addi x6, x6, 1
+    addi s4, s4, 1
     j    test_loop
 
-end:    
-    li   x5, 0x05000000  
-    li  x31,10000000
-    sw   x31, 0(x5)
-    j hang
+end:
+    li   t0, GPIO_BASE
+    li   t6, 0b10000000
+    sw   t6, 0(t0)
+    j    hang
+
+#ifdef RTL_VERSION_1_1
+uart_write_u8:
+    li   t0, UART_BASE
+uart_wait_thre:
+    lbu  t1, UART_LSR_OFFSET(t0)
+    andi t1, t1, UART_LSR_THRE_MASK
+    beqz t1, uart_wait_thre
+    sb   a0, UART_RBR_THR_DLL_OFFSET(t0)
+    ret
+#else
+uart_write_u8:
+    li   t0, UART_BASE
+uart_wait_tx_empty:
+    lw   t1, 0x8(t0)
+    andi t1, t1, TX_EMPTY_MASK
+    beq  t1, zero, uart_wait_tx_empty
+    sb   a0, UART_TX_OFFSET(t0)
+    ret
+#endif

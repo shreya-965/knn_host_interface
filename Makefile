@@ -19,7 +19,7 @@ bootrom: config.mk
 
 # Build firmware
 firmware: config.mk
-	@echo "Building firmware for $(RUN_TARGET) target..."
+	@echo "Building firmware for RTLv$(RTL_VERSION), $(RUN_TARGET) target..."
 	$(MAKE) -C firmware
 
 # UART path: bootrom without flash loading + firmware combined into single binary

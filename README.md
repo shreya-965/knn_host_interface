@@ -21,7 +21,7 @@ Edit `config.mk` to change memory layout, toolchain, or build settings:
 ```makefile
 BOOTROM_START_ADDR := 0x00000000
 BOOTROM_SIZE       := 16384          # 16KB
-RAM_START_ADDR     := 0x00004000
+RAM_START_ADDR     := (derived from RTL_VERSION)
 RAM_SIZE           := 16384          # 16KB
 RISCV_PREFIX       ?= $(HOME)/riscv/toolchain/bin/riscv32-unknown-elf
 ARCH               := rv32im
@@ -54,7 +54,7 @@ Firmware additionally generates `*_with_header.{bin,hex,coe,mem,memh}` with a 16
 |--------|------|-------------|-------------|
 | 0x00   | 4    | Magic       | 0xB007B007 |
 | 0x04   | 4    | Size        | Payload bytes |
-| 0x08   | 4    | Load Addr   | 0x00004000 |
+| 0x08   | 4    | Load Addr   | FW_LOAD_ADDR (defaults to RAM_START_ADDR for selected RTL) |
 | 0x0C   | 4    | Checksum    | 32-bit additive sum of payload words |
 
 ## Directory Structure
