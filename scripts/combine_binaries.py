@@ -9,8 +9,18 @@ Usage: python combine_binaries.py [-o output.bin] input1.bin input2.bin [input3.
 import sys
 import argparse
 import os
+import struct
 
-def combine_binaries(output_file, input_files):
+
+def parse_int(value):
+    if isinstance(value, str):
+        if value.startswith('0x') or value.startswith('0X'):
+            return int(value, 16)
+        return int(value, 10)
+    return int(value)
+
+
+def combine_binaries(output_file, input_files, prepend_uartload_header=False, uart_header_magic16=0xA5D5):
     """
     Combine input binary files into a single output file.
     Files are concatenated in order.
@@ -26,6 +36,32 @@ def combine_binaries(output_file, input_files):
             data = f.read()
             combined_data.extend(data)
             print(f"Added {input_file:40} ({len(data):8} bytes, total: {len(combined_data):8} bytes)")
+
+    if prepend_uartload_header:
+        if len(combined_data) % 4 != 0:
+            print(
+                f"Error: Combined payload size ({len(combined_data)}) must be a multiple of 4 bytes",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if not (0 <= uart_header_magic16 <= 0xFFFF):
+            print("Error: uart_header_magic16 must be in range 0..0xFFFF", file=sys.stderr)
+            sys.exit(1)
+
+        payload_words = len(combined_data) // 4
+        if payload_words > 0xFFFF:
+            print(
+                f"Error: payload_words ({payload_words}) exceeds 16-bit field",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        header_word = ((uart_header_magic16 & 0xFFFF) << 16) | payload_words
+        combined_data = bytearray(struct.pack("<I", header_word)) + combined_data
+        print(
+            f"Prepended UART header word 0x{header_word:08X} "
+            f"(magic16=0x{uart_header_magic16:04X}, payload_words={payload_words})"
+        )
     
     # Write combined output
     with open(output_file, 'wb') as f:
@@ -39,6 +75,9 @@ def combine_binaries(output_file, input_files):
     print()
     print("Component layout:")
     offset = 0
+    if prepend_uartload_header:
+        print("  0x00000000: uart_header (4 bytes)")
+        offset = 4
     for input_file in input_files:
         with open(input_file, 'rb') as f:
             size = len(f.read())
@@ -52,12 +91,17 @@ def main():
         epilog="""
 Examples:
   python combine_binaries.py -o combined.bin bootrom.bin firmware.bin
+    python combine_binaries.py -o combined.bin --prepend-uartload-header bootrom.bin firmware.bin
   python combine_binaries.py -o uart_image.bin test1.bin test2.bin firmware.bin
         """
     )
     
     parser.add_argument('-o', '--output', required=True,
                         help='Output binary file')
+    parser.add_argument('--prepend-uartload-header', action='store_true',
+                        help='Prepend UART header word {magic16, payload_words[15:0]}')
+    parser.add_argument('--uart-header-magic16', default='0xA5D5',
+                        help='16-bit header magic in dec or 0x... (default: 0xA5D5)')
     parser.add_argument('inputs', nargs='+',
                         help='Input binary files to combine')
     
@@ -68,7 +112,18 @@ Examples:
         parser.print_help()
         sys.exit(1)
     
-    combine_binaries(args.output, args.inputs)
+    try:
+        magic16 = parse_int(args.uart_header_magic16)
+    except ValueError:
+        print(f"Error: invalid --uart-header-magic16 value: {args.uart_header_magic16}", file=sys.stderr)
+        sys.exit(1)
+
+    combine_binaries(
+        args.output,
+        args.inputs,
+        prepend_uartload_header=args.prepend_uartload_header,
+        uart_header_magic16=magic16,
+    )
 
 if __name__ == '__main__':
     main()

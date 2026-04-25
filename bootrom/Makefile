@@ -11,6 +11,11 @@ SCRIPT_DIR  := ../scripts
 RTL_TAG     := $(subst .,_,${RTL_VERSION})
 RTL_SRC_DIR := $(SRC_DIR)/rtl_$(RTL_TAG)
 
+# MEMH output configuration for this image
+MEMH_WORD_WIDTH_BITS ?= 32
+MEMH_WORD_BYTE_ORDER ?= reverse
+MEMH_WORDS_PER_LINE  ?= 1
+
 ifeq ($(wildcard $(RTL_SRC_DIR)),)
 $(error Unsupported RTL_VERSION $(RTL_VERSION). Missing $(RTL_SRC_DIR))
 endif
@@ -41,7 +46,7 @@ OBJS := \
 	$(patsubst $(SRC_DIR)/%.S,$(OBJ_DIR)/%.o,$(ASM_SRCS))
 
 # Default target
-all: $(TARGET).elf $(TARGET).dis $(TARGET).bin $(TARGET).hex $(TARGET).coe $(TARGET).mem $(TARGET).v
+all: $(TARGET).elf $(TARGET).dis $(TARGET).bin $(TARGET).hex $(TARGET).coe $(TARGET).mem $(TARGET).memh $(TARGET).v
 
 # Test binaries
 TEST_DIR   := tests
@@ -97,6 +102,13 @@ $(TARGET).elf: $(OBJS) $(BUILD_DIR)/bootrom.lds
 
 %.mem: %.bin $(SCRIPT_DIR)/bin2mem.py
 	python3 $(SCRIPT_DIR)/bin2mem.py $< $@ $(BOOTROM_START_ADDR)
+
+%.memh: %.bin $(SCRIPT_DIR)/bin2memh.py
+	python3 $(SCRIPT_DIR)/bin2memh.py $< \
+		--output $@ \
+		--word-width-bits $(MEMH_WORD_WIDTH_BITS) \
+		--word-byte-order $(MEMH_WORD_BYTE_ORDER) \
+		--words-per-line $(MEMH_WORDS_PER_LINE)
 
 %.v: %.bin $(SCRIPT_DIR)/bin2verilog.py
 	python3 $(SCRIPT_DIR)/bin2verilog.py $< $@ bootrom_mem

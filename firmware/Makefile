@@ -9,6 +9,10 @@ SRC_DIR     := src
 BUILD_DIR   := build
 SCRIPT_DIR  := ../scripts
 
+# MEMH output configuration for this image
+MEMH_WORD_WIDTH_BITS ?= 8
+MEMH_WORDS_PER_LINE  ?= 16
+
 CFLAGS  := -Iinclude $(OPT_LEVEL) -march=$(ARCH) -mabi=$(ABI) $(EXTRA_CFLAGS)
 LDFLAGS := -T$(BUILD_DIR)/firmware.lds -nostdlib -lgcc
 
@@ -69,7 +73,10 @@ $(TARGET).elf: $(OBJS) $(BUILD_DIR)/firmware.lds
 	python3 $(SCRIPT_DIR)/bin2mem.py $< $@ $(RAM_START_ADDR)
 
 %.memh: %.bin $(SCRIPT_DIR)/bin2memh.py
-	python3 $(SCRIPT_DIR)/bin2memh.py $< $@ $(RAM_SIZE) 0xff 16
+	python3 $(SCRIPT_DIR)/bin2memh.py $< \
+		--output $@ \
+		--word-width-bits $(MEMH_WORD_WIDTH_BITS) \
+		--words-per-line $(MEMH_WORDS_PER_LINE)
 
 # Firmware with header
 $(TARGET)_with_header.bin: $(TARGET).bin $(SCRIPT_DIR)/append_firmware_header.py

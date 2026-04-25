@@ -2,20 +2,31 @@
 """
 Convert binary file to Vivado-friendly MEMH format.
 
-Format example (16 bytes per line):
-02 05 ff 03 01 02 03 04 09 08 07 06 05 12 10 ff
+Each memory element has fixed width; each line can contain one or more elements.
+
+Format examples:
+    8-bit width:
+        00
+        0f
+        0c
+
+    32-bit width:
+        00000000
+        00220222
 
 Usage:
-  python3 bin2memh.py <input.bin> [output.memh] [total_bytes] [fill_byte] [bytes_per_line]
+        python3 bin2memh.py <input.bin> [--output output.memh] \
+                [--word-width-bits 32] [--word-byte-order reverse|as-is] [--words-per-line 1]
 
 Arguments:
-  input.bin       Input binary file
-  output.memh     Output file path (default: input with .memh extension)
-  total_bytes     Optional padded output size in bytes (dec or 0x...)
-  fill_byte       Optional padding byte value (dec or 0x..., default: 0xff)
-  bytes_per_line  Optional bytes per line (default: 16)
+    input.bin         Input binary file
+    --output          Output file path (default: input with .memh extension)
+    --word-width-bits Width of each MEMH element in bits (default: 32)
+    --word-byte-order Byte order per output word: reverse or as-is (default: reverse)
+    --words-per-line  Number of memory elements per line (default: 1)
 """
 
+import argparse
 import sys
 
 
@@ -26,54 +37,108 @@ def parse_int(value: str) -> int:
     return int(value, 10)
 
 
-def bin2memh(input_file: str, output_file: str, total_bytes=None, fill_byte=0xFF, bytes_per_line=16):
-    with open(input_file, "rb") as f:
-        data = bytearray(f.read())
+def bin2memh(
+    input_file: str,
+    output_file: str,
+    word_width_bits=32,
+    word_byte_order="reverse",
+    words_per_line=1,
+):
+    if word_width_bits <= 0 or word_width_bits % 8 != 0:
+        raise ValueError("word_width_bits must be a positive multiple of 8.")
+    if words_per_line <= 0:
+        raise ValueError("words_per_line must be > 0.")
+    if word_byte_order not in ("reverse", "as-is"):
+        raise ValueError("word_byte_order must be 'reverse' or 'as-is'.")
 
-    if total_bytes is not None:
-        if total_bytes < len(data):
-            raise ValueError(
-                f"total_bytes ({total_bytes}) is smaller than input size ({len(data)})."
-            )
-        data.extend([fill_byte] * (total_bytes - len(data)))
+    with open(input_file, "rb") as f:
+        raw = f.read()
+
+    input_size = len(raw)
+    word_bytes = word_width_bits // 8
+
+    if input_size % word_bytes != 0:
+        raise ValueError(
+            f"Input size ({input_size}) must be a multiple of {word_bytes} bytes "
+            f"for {word_width_bits}-bit word conversion."
+        )
+
+    hex_width = word_bytes * 2
+    word_count = input_size // word_bytes
 
     with open(output_file, "w") as f:
-        for i in range(0, len(data), bytes_per_line):
-            chunk = data[i:i + bytes_per_line]
-            f.write(" ".join(f"{b:02x}" for b in chunk) + "\n")
+        line_words = []
+        for i in range(0, input_size, word_bytes):
+            word = raw[i:i + word_bytes]
+            if word_byte_order == "reverse":
+                word = word[::-1]
+            line_words.append(f"{int.from_bytes(word, byteorder='big', signed=False):0{hex_width}x}")
+
+            if len(line_words) == words_per_line:
+                f.write(" ".join(line_words) + "\n")
+                line_words.clear()
+
+        if line_words:
+            f.write(" ".join(line_words) + "\n")
 
     print(f"Converted {input_file} to {output_file}")
-    print(f"Input size: {len(open(input_file, 'rb').read())} bytes")
-    print(f"Output size: {len(data)} bytes")
-    print(f"Bytes/line: {bytes_per_line}")
-    if total_bytes is not None:
-        print(f"Padded with 0x{fill_byte:02x} to {total_bytes} bytes")
+    print(f"Input size: {input_size} bytes")
+    print(f"Output words: {word_count}")
+    print(f"Word width: {word_width_bits} bits")
+    print(f"Word byte order: {word_byte_order}")
+    print(f"Words/line: {words_per_line}")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Convert binary to Vivado-friendly MEMH format",
+    )
+    parser.add_argument("input_file", help="Input binary file")
+    parser.add_argument(
+        "--output",
+        "-o",
+        dest="output_file",
+        default=None,
+        help="Output .memh path (default: input with .memh extension)",
+    )
+    parser.add_argument(
+        "--word-width-bits",
+        type=parse_int,
+        default=32,
+        help="Width of each MEMH word in bits (default: 32)",
+    )
+    parser.add_argument(
+        "--word-byte-order",
+        choices=["reverse", "as-is"],
+        default="reverse",
+        help="Byte order per output word (default: reverse)",
+    )
+    parser.add_argument(
+        "--words-per-line",
+        type=parse_int,
+        default=1,
+        help="Number of words written per line (default: 1)",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(
-            "Usage: python3 bin2memh.py <input.bin> [output.memh] [total_bytes] [fill_byte] [bytes_per_line]",
-            file=sys.stderr,
-        )
+    args = parse_args()
+    input_file = args.input_file
+    output_file = args.output_file if args.output_file else input_file.rsplit('.', 1)[0] + '.memh'
+    word_width_bits = args.word_width_bits
+    word_byte_order = args.word_byte_order
+    words_per_line = args.words_per_line
+
+    if word_width_bits <= 0 or word_width_bits % 8 != 0:
+        print("Error: word_width_bits must be a positive multiple of 8", file=sys.stderr)
         sys.exit(1)
-
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else input_file.rsplit('.', 1)[0] + '.memh'
-
-    total_bytes = parse_int(sys.argv[3]) if len(sys.argv) > 3 else None
-    fill_byte = parse_int(sys.argv[4]) if len(sys.argv) > 4 else 0xFF
-    bytes_per_line = parse_int(sys.argv[5]) if len(sys.argv) > 5 else 16
-
-    if not (0 <= fill_byte <= 0xFF):
-        print("Error: fill_byte must be in range 0..255", file=sys.stderr)
-        sys.exit(1)
-    if bytes_per_line <= 0:
-        print("Error: bytes_per_line must be > 0", file=sys.stderr)
+    if words_per_line <= 0:
+        print("Error: words_per_line must be > 0", file=sys.stderr)
         sys.exit(1)
 
     try:
-        bin2memh(input_file, output_file, total_bytes, fill_byte, bytes_per_line)
+        bin2memh(input_file, output_file, word_width_bits, word_byte_order, words_per_line)
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
