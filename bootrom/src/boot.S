@@ -119,11 +119,22 @@ firmware_done:
     li   a0, 0xFF
     call uart_write_u8
 
+#ifdef RTL_VERSION_1_1
+    la   t0, SRAM_CSR_BASE
+    li   t1, 0x4
+    sw   t1, 0(t0)   # Mark firmware load as done
+#endif
+
     mv   t0, s5
     jr   t0
 #else
     li   a0, 0xFF
     call uart_write_u8
+
+    # In UART_PATH, combined image layout is: [bootrom image][firmware image].
+    # Jump to the first byte after the bootrom loadable image.
+    la   t0, _bootrom_image_end
+    jr   t0
 #endif
 
 done:

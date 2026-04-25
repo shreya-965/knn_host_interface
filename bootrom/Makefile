@@ -24,7 +24,7 @@ LD_DEFINES := -DBOOTROM_START_ADDR=$(BOOTROM_START_ADDR) \
 
 # Build type (FLASH_PATH or UART_PATH)
 BUILD_MODE ?= FLASH_PATH
-OBJ_DIR    := $(BUILD_DIR)/obj/$(BUILD_MODE)
+OBJ_DIR    := $(BUILD_DIR)/obj/$(BUILD_MODE)/rtl_$(RTL_TAG)
 CFLAGS += -D$(BUILD_MODE) -DRTL_VERSION_$(RTL_TAG) -DTARGET_$(RUN_TARGET) -I$(RTL_SRC_DIR)
 
 # Output suffix based on build mode (for UART_PATH, creates separate bootrom)

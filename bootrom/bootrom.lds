@@ -32,6 +32,7 @@ SECTIONS
   } > bootrom
 
   . = ALIGN(4);
+  _bootrom_image_end = .;
 
   .bss : {
     _bss_start = .;

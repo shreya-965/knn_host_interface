@@ -3,6 +3,7 @@
 .equ FLASH_IF_BASE,             0x01000000
 .equ UART_BASE,                 0x03000000
 .equ GPIO_BASE,                 0x05000000
+.equ SRAM_CSR_BASE,             0x00200000
 
 .equ UART_RBR_THR_DLL_OFFSET,   0x0
 .equ UART_DLM_IER_OFFSET,       0x1
