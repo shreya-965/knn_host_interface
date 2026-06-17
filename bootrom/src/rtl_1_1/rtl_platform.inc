@@ -5,11 +5,15 @@
 .equ GPIO_BASE,                 0x05000000
 .equ SRAM_CSR_BASE,             0x00200000
 
-.equ UART_RBR_THR_DLL_OFFSET,   0x0
-.equ UART_DLM_IER_OFFSET,       0x1
-.equ UART_FCR_IIR_OFFSET,       0x2
+# Some of these offsets are different from the UART 16550 spec due to memory alignment issues.
+# They are remapped in the RTL. 
+.equ UART_RHR_THR_DLL_OFFSET,   0x0 # Same offset for RHR, THR and DLL
+.equ UART_DL_IER_OFFSET,       0x1 # Same offset for DLL/DLM and IER
+.equ UART_FCR_ISR_OFFSET,       0x2
 .equ UART_LCR_OFFSET,           0x3
 .equ UART_LSR_OFFSET,           0xC
+
 .equ UART_LSR_THRE_MASK,        0x20
+.equ UART_RX_READY_MASK,    0x1
 
 .equ FLASH_INIT_DELAY_LOOPS,    4000

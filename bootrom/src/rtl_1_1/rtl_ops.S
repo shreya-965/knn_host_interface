@@ -15,15 +15,15 @@ uart_init:
     sb   t1, UART_LCR_OFFSET(t0)
 
     li   t1, 0x00
-    sb   t1, UART_DLM_IER_OFFSET(t0)
-    li   t1, 0x36
-    sb   t1, UART_RBR_THR_DLL_OFFSET(t0)
+    sb   t1, UART_DL_IER_OFFSET(t0)
+    li   t1, 0x36   # 115200 baud, assuming 100MHz clock
+    sb   t1, UART_RHR_THR_DLL_OFFSET(t0)
 
     li   t1, 0x03
     sb   t1, UART_LCR_OFFSET(t0)
 
     li   t1, 0xC6
-    sb   t1, UART_FCR_IIR_OFFSET(t0)
+    sb   t1, UART_FCR_ISR_OFFSET(t0)
     ret
 
 # a0 = byte
@@ -33,7 +33,19 @@ uart_wait_thre:
     lbu  t1, UART_LSR_OFFSET(t0)
     andi t1, t1, UART_LSR_THRE_MASK
     beqz t1, uart_wait_thre
-    sb   a0, UART_RBR_THR_DLL_OFFSET(t0)
+    sb   a0, UART_RHR_THR_DLL_OFFSET(t0)
+    ret
+
+# returns byte in a0
+uart_read_u8:
+    li t0, UART_BASE
+uart_wait_rx_valid:
+    lbu t1, UART_LSR_OFFSET(t0)
+    andi t1, t1, UART_RX_READY_MASK
+    beq t1, zero, uart_wait_rx_valid
+
+    lb t1, UART_RHR_THR_DLL_OFFSET(t0)
+    mv a0, t1
     ret
 
 #ifdef FLASH_PATH

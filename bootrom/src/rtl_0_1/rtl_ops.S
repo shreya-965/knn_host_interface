@@ -20,10 +20,22 @@ uart_init:
 uart_write_u8:
     li   t0, UART_BASE
 uart_wait_tx_empty:
-    lw   t1, 0x8(t0)
-    andi t1, t1, TX_EMPTY_MASK
+    lw   t1, UART_SR_OFFSET(t0)
+    andi t1, t1, UART_TX_FIFO_FULL_MASK 
     beq  t1, zero, uart_wait_tx_empty
     sb   a0, UART_TX_OFFSET(t0)
+    ret
+
+# returns byte in a0
+uart_read_u8:
+    li t0, UART_BASE
+uart_wait_rx_valid:
+    lw t1, UART_SR_OFFSET(t0)
+    andi t1, t1, RX_NOT_EMPTY_MASK
+    beq t1, zero, uart_wait_rx_valid
+
+    lw t1, UART_RX_OFFSET(t0)
+    andi a0, t1, 0xFF
     ret
 
 #ifdef FLASH_PATH

@@ -5,7 +5,13 @@
 .equ GPIO_BASE,            0x05000000
 
 .equ GPIO_DIR_OFFSET,      0x4
-.equ UART_TX_OFFSET,       0x4
+
+.equ UART_RX_OFFSET,  0x00 # Receive FIFO register
+.equ UART_TX_OFFSET,       0x4 # Transmit FIFO register
+.equ UART_SR_OFFSET,       0x08 # Status register offset
+.equ UART_CTRLR_OFFSET,     0x0C # Control register offset
+.equ UART_RX_FIFO_VALID_MASK, 0x1 # Mask to check if RX FIFO has valid data
+.equ UART_TX_FIFO_FULL_MASK, 0x4 # Mask to check if TX FIFO is full
 
 .equ SPI_SR_OFFSET,        0x64
 .equ SPI_TX_FIFO_OFFSET,   0x68
