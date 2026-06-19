@@ -32,7 +32,7 @@ uart_read_u8:
     li t0, UART_BASE
 uart_wait_rx_valid:
     lw t1, UART_SR_OFFSET(t0)
-    andi t1, t1, RX_NOT_EMPTY_MASK
+    andi t1, t1, UART_RX_FIFO_VALID_MASK
     beq t1, zero, uart_wait_rx_valid
 
     lw t1, UART_RX_OFFSET(t0)

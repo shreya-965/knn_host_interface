@@ -6,7 +6,7 @@
 # =============================================================================
 
 # RTL version
-RTL_VERSION        ?= 1.1
+RTL_VERSION        ?= 0.1
 RTL_TAG            := $(subst .,_,${RTL_VERSION})
 
 # SIM or FPGA (in caps)

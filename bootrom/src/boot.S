@@ -16,6 +16,7 @@
 # RTL hook ABI:
 #   uart_init()
 #   uart_write_u8(a0 = byte)
+#   uart_read_u8()
 #   flash_init()
 #   flash_prepare()
 #   flash_read_words(a0 = flash_offset, a1 = dst_ptr, a2 = word_count)
@@ -112,27 +113,43 @@ verify_payload:
     bne  a0, s7, done
 
 #  --- GPIO STATUS: FLASH BURST READ DONE (0x04) ---
+#  --- GPIO STATUS: FLASH BURST READ DONE (0x04) ---
 firmware_done:
     li   t0, 0x04
     sw   t0, 0(t6)
 
+    # Tell host firmware is ready
     li   a0, 0xFF
     call uart_write_u8
+
+    # Wait for command from host
+wait_for_host:
+    call uart_read_u8
+
+    # 0x10 = Run default dataset
+    li   t0, 0x10
+    beq  a0, t0, start_fw
+
+    # Ignore unknown commands
+    j    wait_for_host
+
+start_fw:
 
 #ifdef RTL_VERSION_1_1
     la   t0, SRAM_CSR_BASE
     li   t1, 0x4
-    sw   t1, 0(t0)   # Mark firmware load as done
+    sw   t1, 0(t0)       # Mark firmware load as done
 #endif
 
     mv   t0, s5
     jr   t0
+
 #else
     li   a0, 0xFF
     call uart_write_u8
 
-    # In UART_PATH, combined image layout is: [bootrom image][firmware image].
-    # Jump to the first byte after the bootrom loadable image.
+    # In UART_PATH, combined image layout is:
+    # [bootrom image][firmware image]
     la   t0, _bootrom_image_end
     jr   t0
 #endif
