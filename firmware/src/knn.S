@@ -17,6 +17,15 @@
 .text
 .globl main
 main:
+
+wait_for_command:
+
+    call uart_read_u8
+
+    li t0,0x10
+    bne a0,t0,wait_for_command
+    # received 0x10
+
     li   t0, GPIO_BASE
     li   t6, 1
     sw   t6, 0(t0)

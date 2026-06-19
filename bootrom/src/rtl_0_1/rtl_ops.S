@@ -4,6 +4,7 @@
 .global gpio_init
 .global uart_init
 .global uart_write_u8
+.global uart_read_u8
 
 gpio_init:
     li   t0, GPIO_BASE
