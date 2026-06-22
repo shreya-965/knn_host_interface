@@ -128,8 +128,7 @@ wait_for_host:
 
     # 0x10 = Run default dataset
     li   t0, 0x10
-    beqz t0, start_fw
-
+    beq a0,t0,start_fw
     # Ignore unknown commands
     j    wait_for_host
 
