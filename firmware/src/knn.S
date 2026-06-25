@@ -8,10 +8,12 @@
     .equ UART_RBR_THR_DLL_OFFSET, 0x0
 #else
     .equ UART_BASE, 0x20020000
+    .equ UART_RX_OFFSET, 0x0
     .equ UART_TX_OFFSET, 0x4
+    .equ UART_SR_OFFSET, 0x8
+    .equ UART_RX_FIFO_VALID_MASK, 0x1
     .equ TX_EMPTY_MASK, 0x4
 #endif
-
 .equ GPIO_BASE , 0x05000000
 
 .text
@@ -322,7 +324,32 @@ end:
     li   t0, GPIO_BASE
     li   t6, 0b10000000
     sw   t6, 0(t0)
-    j    hang
+
+wait_for_command:
+
+    # Notify host that firmware is idle and waiting
+    li   a0, 0xFF
+    call uart_write_u8
+
+wait_for_command_loop:
+
+    # Wait for a command
+    call uart_read_u8
+
+    # Only recognize 0x10 for now
+    li   t0, 0x10
+    beq  a0, t0, restart_default
+
+    # Ignore everything else
+    j    wait_for_command_loop
+
+restart_default:
+
+    # Reset test image index else s3=8 == s4 and fw would finish immediately again 
+    li   s4, 0 #Start from image zero again.
+
+    # Start KNN again, dont jump to main, we dont need to init gpio, uart and flash again
+    j    test_loop
 
 #ifdef RTL_VERSION_1_1
 uart_write_u8:
@@ -343,3 +370,14 @@ uart_wait_tx_empty:
     sb   a0, UART_TX_OFFSET(t0)
     ret
 #endif
+uart_read_u8:
+    li   t0, UART_BASE
+
+uart_wait_rx_valid:
+    lw   t1, UART_SR_OFFSET(t0)
+    andi t1, t1, UART_RX_FIFO_VALID_MASK
+    beq  t1, zero, uart_wait_rx_valid
+
+    lw   t1, UART_RX_OFFSET(t0)
+    andi a0, t1, 0xFF
+    ret
